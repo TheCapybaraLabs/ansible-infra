@@ -2,12 +2,16 @@
 
 - **Status:** accepted
 - **Date:** 2026-08-06
+- **Amended:** 2026-11-11 (3.0.0) — the namespace is `capybaralabs`, which no longer matches the owning account
+  (`TheCapybaraLabs`). Nothing here depends on it: distribution stays a git tag. A Galaxy publish would first need the
+  namespace claimed under the org's Galaxy identity, or renamed to match it.
 
 ## Context
 
 This is a collection, and the default assumption about a collection is that it ends up on Ansible Galaxy. The namespace
-was renamed to match the owning GitHub account partly so that door stays open — Galaxy grants namespaces from that
-identity, and a mismatch would have closed it permanently.
+was first renamed to match the owning GitHub account partly so that door stays open — Galaxy grants namespaces from that
+identity. Since 3.0.0 it no longer matches (see Amended above): the door is not closed for good, but walking through it
+now takes a namespace claim or another rename.
 
 The door being open is not a reason to walk through it. The question is what publishing buys a consumer that a git tag
 does not, and the answer turned out to be smaller than expected.

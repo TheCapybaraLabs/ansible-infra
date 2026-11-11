@@ -7,16 +7,19 @@
 # would say the contract may still move, and the README's var table is a
 # contract we intend to hold. Tag the repo to match on every release;
 # consumers pin that tag in their requirements.yml.
-namespace: fabbrito
+#
+# 3.0.0 renamed the namespace and skips 2.x on purpose: CHANGELOG.md says why.
+namespace: capybaralabs
 name: infra
-version: 1.2.3
+version: 3.0.0
 readme: README.md
 
 # No mailbox: this manifest ships to every consumer and MANIFEST.json is world
 # readable once the repo is public. Contact goes through the repo — issues for
 # bugs, the Security tab for anything private (SECURITY.md).
 authors:
-  - Fabrício Brito (@fabbrito)
+  - Capybara Labs (maintainer)
+  - Fabrício Brito (original author)
 
 description: >-
   Baseline convergence for long-lived Ubuntu VPS hosts — OS hardening, firewall,
@@ -48,10 +51,10 @@ dependencies:
   community.general: ">=13.0.0,<14.0.0"
   ansible.posix: ">=2.0.0,<3.0.0"
 
-repository: https://github.com/fabbrito/ansible-infra
-documentation: https://github.com/fabbrito/ansible-infra/blob/master/README.md
-homepage: https://github.com/fabbrito/ansible-infra
-issues: https://github.com/fabbrito/ansible-infra/issues
+repository: https://github.com/TheCapybaraLabs/ansible-infra
+documentation: https://github.com/TheCapybaraLabs/ansible-infra/blob/master/README.md
+homepage: https://github.com/TheCapybaraLabs/ansible-infra
+issues: https://github.com/TheCapybaraLabs/ansible-infra/issues
 
 # Repo-local development tooling and authoring rules. They lint and govern this
 # repo; they are not part of what a consumer installs, and shipping them would

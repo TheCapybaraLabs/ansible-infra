@@ -24,7 +24,7 @@ fi
 # and ansible-test refuses). A real copy is the only way to give it the layout
 # it wants without moving the repo itself.
 stage='.collections/sanity'
-dest="$stage/ansible_collections/fabbrito/infra"
+dest="$stage/ansible_collections/capybaralabs/infra"
 rm -rf "$stage" && mkdir -p "$dest" || exit 1
 
 # .collections excluded or the copy contains itself; .ansible is local cache.

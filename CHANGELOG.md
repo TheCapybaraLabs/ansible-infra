@@ -1,10 +1,39 @@
 # Changelog
 
-All notable changes to `fabbrito.infra`. The version here, the version in `galaxy.yml`, and the git tag move together —
-consumers pin the tag, so a change that is not released is a change nobody gets.
+All notable changes to `capybaralabs.infra` (`fabbrito.infra` until 1.2.3). The version here, the version in
+`galaxy.yml`, and the git tag move together — consumers pin the tag, so a change that is not released is a change nobody
+gets.
 
 A released tag is never repointed. 1.0.0 moved while the repo was private and nothing pinned it; going public ended
 that, and the next correction is 1.0.1.
+
+## 3.0.0
+
+Major because every FQCN changes. It skips 2.x: the former author's repo publishes its own, unrelated 2.x line, and a
+consumer still pointed there must not get a matching number for different code.
+
+### Changed
+
+- **The namespace is `capybaralabs`**: every role and playbook is `capybaralabs.infra.*`, and the collection installs
+  under `ansible_collections/capybaralabs/infra`. The repo moved from the former author's account to the
+  `TheCapybaraLabs` organisation, which maintains it; nothing is synced from the old repo. Role logic and defaults are
+  1.2.3's; the contract that changed is the name.
+- Rendered files that name their source now say `capybaralabs.infra` in that comment: the Caddyfile, the monitoring
+  `docker-compose.yml` and `.env`, the Docker cleanup unit, timer and script. The first converge after the bump reports
+  those writes as changed and fires their handlers — Caddy reloads, systemd reloads. Compose ignores comment-only
+  changes, so the monitoring containers are not recreated.
+
+### Migrating
+
+- Point `requirements.yml` at `https://github.com/TheCapybaraLabs/ansible-infra.git`. The former author's repo is a
+  separate, live repo, not a redirect; only `lailson/ansible-infra` redirects here.
+- Delete the old install (`<collections path>/ansible_collections/fabbrito`) before the first play: installing 3.0.0
+  adds the new tree beside it without removing it, so a missed FQCN would keep resolving against 1.2.x instead of
+  failing.
+- Rename every `fabbrito.infra.*` in plays, `import_playbook` and `ansible-playbook` calls to `capybaralabs.infra.*`,
+  then `grep -rn fabbrito.infra` to confirm none is left.
+- Run the consumer's `--check --diff` gate: the expected diff is the source comments above, nothing else. A consumer
+  that pins collection-rendered bytes in its own golden or snapshot fixtures regenerates them for the same lines.
 
 ## 1.2.3
 
