@@ -11,7 +11,7 @@
 # 3.0.0 renamed the namespace and skips 2.x on purpose: CHANGELOG.md says why.
 namespace: capybaralabs
 name: infra
-version: 3.0.0
+version: 4.0.0
 readme: README.md
 
 # No mailbox: this manifest ships to every consumer and MANIFEST.json is world

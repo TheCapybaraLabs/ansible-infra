@@ -1,0 +1,101 @@
+---
+# The login in main.yml stays idempotent: for a username and token already
+# stored it returns that entry without asking the registry, so a revoked token
+# would converge green. This asks first, read-only, in --check too. A service
+# role that runs its own docker_login reuses it with
+# `include_role: {name: capybaralabs.infra.docker, tasks_from: prove-ghcr}`;
+# without a token it skips, like the login.
+- name: Prove the GHCR pull credential
+  when: ghcr_pull_token | default('', true) | length > 0
+  vars:
+    docker_ghcr_probe_repo: "{{ docker_ghcr_probe_repository | default('', true) }}"
+  block:
+    - name: Require ghcr_login_username with the token
+      ansible.builtin.assert:
+        that: ghcr_login_username | default('', true) | length > 0
+        fail_msg: ghcr_pull_token is set but ghcr_login_username is not; name the token's owner.
+        quiet: true
+
+    # Unscoped: this answers only "does ghcr.io accept the pair", so a wrong
+    # probe repository can never read as a rejected credential.
+    - name: Ask ghcr.io whether it accepts the credential
+      ansible.builtin.uri:
+        url: https://ghcr.io/token?service=ghcr.io
+        url_username: "{{ ghcr_login_username }}"
+        url_password: "{{ ghcr_pull_token }}"
+        force_basic_auth: true
+        timeout: 15
+      register: docker_ghcr_auth
+      no_log: true
+      failed_when: false
+      changed_when: false
+      check_mode: false
+
+    - name: Ask ghcr.io for a pull token on the probe repository
+      ansible.builtin.uri:
+        url: "https://ghcr.io/token?service=ghcr.io&scope=repository:{{ docker_ghcr_probe_repo }}:pull"
+        url_username: "{{ ghcr_login_username }}"
+        url_password: "{{ ghcr_pull_token }}"
+        force_basic_auth: true
+        timeout: 15
+      register: docker_ghcr_scoped
+      no_log: true
+      failed_when: false
+      changed_when: false
+      check_mode: false
+      when: docker_ghcr_probe_repo | length > 0 and docker_ghcr_auth.status == 200
+
+    - name: Ask the probe repository for a tag with that token
+      ansible.builtin.uri:
+        url: "https://ghcr.io/v2/{{ docker_ghcr_probe_repo }}/tags/list?n=1"
+        headers:
+          Authorization: "Bearer {{ docker_ghcr_scoped.json.token }}"
+        timeout: 15
+      register: docker_ghcr_pull
+      no_log: true
+      failed_when: false
+      changed_when: false
+      check_mode: false
+      when: docker_ghcr_scoped.status | default(0) == 200 and docker_ghcr_scoped.json.token is defined
+
+    # One verdict, read by the three tasks below: rejected (the credential),
+    # unreadable (the probe repository), unknown (ghcr.io did not answer one).
+    - name: Read the verdict
+      ansible.builtin.set_fact:
+        docker_ghcr_verdict: >-
+          {{ 'rejected' if docker_ghcr_auth.status in [400, 401, 403]
+          else 'unknown' if docker_ghcr_auth.status != 200
+          else 'proven' if docker_ghcr_probe_repo | length == 0
+          else 'unreadable' if (docker_ghcr_scoped.status | default(0)) in [400, 401, 403, 404]
+          or (docker_ghcr_pull.status | default(0)) in [400, 401, 403, 404]
+          else 'proven' if (docker_ghcr_scoped.status | default(0)) == 200
+          and (docker_ghcr_pull.status | default(0)) == 200
+          else 'unknown' }}
+        docker_ghcr_statuses: >-
+          auth HTTP {{ docker_ghcr_auth.status }}, scoped token HTTP {{ docker_ghcr_scoped.status | default('-') }},
+          pull HTTP {{ docker_ghcr_pull.status | default('-') }}
+
+    - name: Refuse a credential ghcr.io rejects
+      ansible.builtin.assert:
+        that: docker_ghcr_verdict != 'rejected'
+        fail_msg: >-
+          ghcr.io rejected ghcr_login_username / ghcr_pull_token ({{ docker_ghcr_statuses }}). Rotate the token: a
+          host already logged in keeps pulling with whatever it stored, until that is revoked.
+        quiet: true
+
+    - name: Refuse a probe repository the credential cannot read
+      ansible.builtin.assert:
+        that: docker_ghcr_verdict != 'unreadable'
+        fail_msg: >-
+          The credential authenticates, but cannot read {{ docker_ghcr_probe_repo }} ({{ docker_ghcr_statuses }}):
+          the package does not exist under that name, or the token's owner has no read access to it.
+        quiet: true
+
+    # ghcr.io down, rate-limited or unreachable is not a verdict on the
+    # credential. The converge goes on; the failure is ignored, so it shows in
+    # the recap as ignored=1 instead of one line among hundreds.
+    - name: Flag a credential ghcr.io could not be asked about
+      ansible.builtin.fail:
+        msg: Could not prove the GHCR credential ({{ docker_ghcr_statuses }}); converging without that check.
+      when: docker_ghcr_verdict == 'unknown'
+      ignore_errors: true # noqa: ignore-errors — deliberate: it is what puts an unproven credential in the recap
