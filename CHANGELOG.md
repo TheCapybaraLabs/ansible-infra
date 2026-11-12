@@ -7,6 +7,32 @@ gets.
 A released tag is never repointed. 1.0.0 moved while the repo was private and nothing pinned it; going public ended
 that, and the next correction is 1.0.1.
 
+## 4.0.0
+
+Major: a converge that used to pass can now fail — a rejected GHCR credential, a token set without
+`ghcr_login_username`, or an unreadable probe repository.
+
+### Changed
+
+- With `ghcr_pull_token` set, the `docker` role proves the credential before it changes anything on the host
+  (`roles/docker/tasks/prove-ghcr.yml`). The login itself returns a stored entry for the same username and token without
+  asking the registry, so a revoked token used to converge green while the host kept pulling with its stored credential.
+  - ghcr.io answering 400/401/403 to the pair fails the converge ("rotate the token").
+  - With `docker_ghcr_probe_repository` set, the probe also reads one tag of that package; 400/401/403/404 there fails
+    apart ("the package does not exist under that name, or the owner cannot read it").
+  - ghcr.io unreachable, rate-limited or answering anything else is not a verdict: the converge goes on and the probe
+    shows as `ignored=1` in the recap.
+  - Read-only, `changed_when: false`, and it runs in `--check` too.
+- `ghcr_login_username` is asserted whenever the token is set, and a null `ghcr_pull_token` now means "no login" (it
+  used to fail templating).
+
+### Added
+
+- `docker_ghcr_probe_repository` (default empty, `<owner>/<package>`): proves the token can pull, not only that it
+  authenticates.
+- `prove-ghcr.yml` is includable by a service role that runs its own `docker_login` (`tasks_from: prove-ghcr`); it skips
+  without a token, like the login.
+
 ## 3.0.0
 
 Major because every FQCN changes. It skips 2.x: the former author's repo publishes its own, unrelated 2.x line, and a

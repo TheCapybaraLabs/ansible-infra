@@ -14,7 +14,7 @@ service, which is also where inventory, secrets and the converge itself live.
 collections:
   - name: git+https://github.com/TheCapybaraLabs/ansible-infra.git
     type: git
-    version: v3.0.0 # a tag, never a branch — see Versioning
+    version: v4.0.0 # a tag, never a branch — see Versioning
 ```
 
 The repo is public, so `https` needs no credential — which is what makes this installable from a CI runner without
@@ -99,13 +99,13 @@ work or fails loudly, and which one is stated below.
 
 **Optional — absent, the role skips that work rather than failing**
 
-| Var                                                          | Effect when absent                                                                                                                                                                                            |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ghcr_pull_token`                                            | `docker` skips the registry login.                                                                                                                                                                            |
-| `ghcr_login_username`                                        | Required whenever the token is set — the login task templates it unconditionally and fails on an undefined variable.                                                                                          |
-| `rclone_r2_access_key_id`, `_secret_access_key`, `_endpoint` | `rclone` installs the binary, renders no remote named `r2`. All three or none — asserted.                                                                                                                     |
-| `rclone_crypt_password` + `rclone_crypt_password2`           | No `r2crypt` wrapper is rendered and backups write to the plain remote. Both or neither — asserted. See docs/rclone/encryption.md.                                                                            |
-| `os_hostname_domain`                                         | `os` does not name the box at all — the provider's name stands. Set it, and the box becomes `<inventory key>.<domain>`. Override the derivation per host with `os_hostname`; naming happens if either is set. |
+| Var                                                          | Effect when absent                                                                                                                                                                                                                                                                                                                                           |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ghcr_pull_token`                                            | `docker` skips the registry login.                                                                                                                                                                                                                                                                                                                           |
+| `ghcr_login_username`                                        | Required whenever the token is set — asserted. With the token set, `docker` asks ghcr.io whether it accepts the pair before touching the host (`tasks/prove-ghcr.yml`): 400/401/403 fail the converge; with `docker_ghcr_probe_repository` set, an unreadable package (400/401/403/404) fails too; ghcr.io unreachable or rate-limited shows as `ignored=1`. |
+| `rclone_r2_access_key_id`, `_secret_access_key`, `_endpoint` | `rclone` installs the binary, renders no remote named `r2`. All three or none — asserted.                                                                                                                                                                                                                                                                    |
+| `rclone_crypt_password` + `rclone_crypt_password2`           | No `r2crypt` wrapper is rendered and backups write to the plain remote. Both or neither — asserted. See docs/rclone/encryption.md.                                                                                                                                                                                                                           |
+| `os_hostname_domain`                                         | `os` does not name the box at all — the provider's name stands. Set it, and the box becomes `<inventory key>.<domain>`. Override the derivation per host with `os_hostname`; naming happens if either is set.                                                                                                                                                |
 
 **Required once a host joins the group that needs it**
 

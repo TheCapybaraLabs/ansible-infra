@@ -16,3 +16,8 @@ docker_users:
 docker_cleanup_until: 168h
 docker_cleanup_oncalendar: "Sun *-*-* 05:00:00"
 docker_cleanup_randomized_delay: 30m
+
+# A private package the hosts pull, as `<owner>/<package>`. Set, the GHCR probe
+# (tasks/prove-ghcr.yml) also reads one of its tags, which proves the token can
+# pull, not only that it authenticates. Empty, it proves authentication alone.
+docker_ghcr_probe_repository: ""
