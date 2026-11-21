@@ -57,9 +57,12 @@
     username: "{{ ghcr_login_username }}"
     password: "{{ ghcr_pull_token }}"
   # In --check the engine above isn't really installed — login hits a missing daemon.
+  # docker_ghcr_login_ok is false only for a rejected credential the probe let
+  # pass (tasks/ghcr-verdict.yml).
   when:
     - not ansible_check_mode
     - ghcr_pull_token | default('', true) | length > 0
+    - docker_ghcr_login_ok | default(true)
   no_log: true
 
 - name: Install docker cleanup timer

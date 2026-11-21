@@ -19,5 +19,7 @@ docker_cleanup_randomized_delay: 30m
 
 # A private package the hosts pull, as `<owner>/<package>`. Set, the GHCR probe
 # (tasks/prove-ghcr.yml) also reads one of its tags, which proves the token can
-# pull, not only that it authenticates. Empty, it proves authentication alone.
+# pull, not only that it authenticates. Empty, it proves authentication alone,
+# and a credential ghcr.io rejects skips the login instead of failing the
+# converge: set it on every host that pulls a private package.
 docker_ghcr_probe_repository: ""
