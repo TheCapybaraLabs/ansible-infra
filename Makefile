@@ -7,7 +7,7 @@
 #   make hooks      # point git at .githooks (once per clone)
 #   make check      # fmt-check + lint (the pre-commit gate)
 #   make sanity     # ansible-test sanity (CI; slow on a cold venv)
-#   make test       # golden render tests (CI)
+#   make test       # golden renders + GHCR verdict cases (CI)
 
 .DEFAULT_GOAL := help
 SHELL := /bin/bash
@@ -70,8 +70,9 @@ sanity: ## ansible-test sanity against a staged copy of the working tree
 	./scripts/sanity.sh
 
 .PHONY: test
-test: ## Render the golden fixtures and diff against tests/golden/expected
+test: ## Golden renders + the GHCR verdict cases and their mutants
 	./scripts/golden.sh
+	./scripts/ghcr-verdict.sh --mutants
 
 # Separate target rather than a flag on `test`, so accepting a new expectation is
 # always a deliberate command with a diff to read afterwards.

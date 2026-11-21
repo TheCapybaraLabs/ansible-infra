@@ -1,0 +1,42 @@
+---
+# One case. A registered result that a probe never wrote is absent, not a
+# skipped-task dict — the verdict reads both through `default(0)`.
+- name: Load the answers for {{ ghcr_verdict_case.name }}
+  ansible.builtin.set_fact:
+    docker_ghcr_probe_repo: "{{ ghcr_verdict_case.probe }}"
+    docker_ghcr_auth: { status: "{{ ghcr_verdict_case.auth }}" }
+    docker_ghcr_scoped: "{{ {'status': ghcr_verdict_case.scoped} if ghcr_verdict_case.scoped is defined else {} }}"
+    docker_ghcr_pull: "{{ {'status': ghcr_verdict_case.pull} if ghcr_verdict_case.pull is defined else {} }}"
+    docker_ghcr_verdict: unset
+    docker_ghcr_login_ok: unset
+    docker_ghcr_rejected_flag: {}
+    docker_ghcr_unknown_flag: {}
+    ghcr_verdict_stopped: false
+
+- name: Judge {{ ghcr_verdict_case.name }}
+  block:
+    - name: Include the verdict
+      ansible.builtin.include_tasks: "{{ ghcr_verdict_tasks }}"
+  rescue:
+    - name: Record that the converge would stop
+      ansible.builtin.set_fact:
+        ghcr_verdict_stopped: true
+
+- name: Check {{ ghcr_verdict_case.name }}
+  ansible.builtin.assert:
+    that:
+      - docker_ghcr_verdict == ghcr_verdict_case.verdict
+      - ghcr_verdict_stopped == ghcr_verdict_case.fatal
+      - docker_ghcr_login_ok | bool == ghcr_verdict_case.login
+      # The flag is the recap's ignored=1: the only trace of a skipped login.
+      - (docker_ghcr_rejected_flag.failed | default(false)) == (ghcr_verdict_case.flag == 'rejected')
+      - (docker_ghcr_unknown_flag.failed | default(false)) == (ghcr_verdict_case.flag == 'unknown')
+    fail_msg: >-
+      {{ ghcr_verdict_case.name }}: verdict {{ docker_ghcr_verdict }} (want {{ ghcr_verdict_case.verdict }}), stopped
+      {{ ghcr_verdict_stopped }} (want {{ ghcr_verdict_case.fatal }}), login {{ docker_ghcr_login_ok }} (want
+      {{ ghcr_verdict_case.login }}), flag (want {{ ghcr_verdict_case.flag }})
+    quiet: true
+
+- name: Count {{ ghcr_verdict_case.name }}
+  ansible.builtin.set_fact:
+    ghcr_verdict_checked: "{{ ghcr_verdict_checked | default(0) | int + 1 }}"

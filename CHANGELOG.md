@@ -7,6 +7,23 @@ gets.
 A released tag is never repointed. 1.0.0 moved while the repo was private and nothing pinned it; going public ended
 that, and the next correction is 1.0.1.
 
+## 4.1.0
+
+### Changed
+
+- A credential ghcr.io rejects no longer fails the converge on a host whose `docker_ghcr_probe_repository` is empty.
+  Nothing says that host pulls a private package, and one revoked fleet-wide token used to stop every converge, boxes
+  that pull nothing from ghcr.io included. The `docker` role skips its login instead and the rejection shows as
+  `ignored=1`. With the probe repository set, a rejection still fails, as in 4.0.0.
+
+### Added
+
+- `docker_ghcr_login_ok`, set by `prove-ghcr.yml`: false whenever ghcr.io rejected the credential — the skipped
+  rejection above, and the refused one with a probe repository set, where the converge stops anyway. True without a
+  token and for every other verdict. A service role that runs its own `docker_login` after `tasks_from: prove-ghcr`
+  gates it on `docker_ghcr_login_ok | default(true)`, or sets the probe repository to the package it pulls so the
+  rejection refuses before anything pulls.
+
 ## 4.0.0
 
 Major: a converge that used to pass can now fail — a rejected GHCR credential, a token set without

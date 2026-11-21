@@ -71,3 +71,18 @@ Three rules the layout does not enforce:
 
 **One fixture per decision, not per host.** Each names the branch it exists to pin, in a comment at the top. A fixture
 that sets everything at once tests nothing in particular and its diff is unreadable.
+
+## `ghcr-verdict/`
+
+`make test` also runs `scripts/ghcr-verdict.sh --mutants`: `roles/docker/tasks/ghcr-verdict.yml` on localhost, fed
+recorded ghcr.io answers, one case per decision — the verdict, whether the converge stops, whether the login may run.
+That file decides whether one rejected token stops a whole fleet's converge, and neither `ansible-lint` nor a golden
+render can see a decision.
+
+This is not the unit suite ADR-0003 rules out: the cases test our verdict, never a module. The probes themselves stay
+untested here; ghcr.io's answers are the consumer's dry-run.
+
+**Mutants.** The script then removes each guard (`tests/ghcr-verdict/mutants.txt`) in a copy of the file and expects a
+case's own check to fail (its message carries `(want …)`); a mutant that breaks the template instead does not count as
+caught. A guard you add gets a case and a mutant in the same commit, and a mutation that no longer applies to the file
+fails the run, so a rewrite cannot quietly retire one.

@@ -1,0 +1,108 @@
+---
+# Feeds roles/docker/tasks/ghcr-verdict.yml recorded ghcr.io answers and checks
+# what it decides: the verdict, whether the converge stops, whether the login
+# may run. No network — the three probes are the one part left to ghcr.io.
+#
+#   ansible-playbook tests/ghcr-verdict/run.yml
+#   ansible-playbook tests/ghcr-verdict/run.yml -e ghcr_verdict_tasks=<copy>
+#
+# The second form is how scripts/ghcr-verdict.sh runs a broken copy.
+- name: GHCR verdict cases
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    ghcr_verdict_tasks: "{{ playbook_dir }}/../../roles/docker/tasks/ghcr-verdict.yml"
+    ghcr_verdict_prove_tasks: "{{ playbook_dir }}/../../roles/docker/tasks/prove-ghcr.yml"
+    ghcr_verdict_cases:
+      - name: rejected token, host names no package
+        probe: ""
+        auth: 401
+        verdict: rejected
+        fatal: false
+        login: false
+        flag: rejected
+      - name: forbidden token, host names no package
+        probe: ""
+        auth: 403
+        verdict: rejected
+        fatal: false
+        login: false
+        flag: rejected
+      - name: rejected token, host pulls a private package
+        probe: example-owner/example-app
+        auth: 401
+        verdict: rejected
+        fatal: true
+        login: false
+        flag: none
+      - name: accepted token, no package
+        probe: ""
+        auth: 200
+        verdict: proven
+        fatal: false
+        login: true
+        flag: none
+      - name: accepted token, readable package
+        probe: example-owner/example-app
+        auth: 200
+        scoped: 200
+        pull: 200
+        verdict: proven
+        fatal: false
+        login: true
+        flag: none
+      - name: accepted token, package it cannot read
+        probe: example-owner/example-app
+        auth: 200
+        scoped: 200
+        pull: 404
+        verdict: unreadable
+        fatal: true
+        login: true
+        flag: none
+      - name: ghcr.io unreachable, host pulls a package
+        probe: example-owner/example-app
+        auth: -1
+        verdict: unknown
+        fatal: false
+        login: true
+        flag: unknown
+      - name: ghcr.io rate-limited, no package
+        probe: ""
+        auth: 429
+        verdict: unknown
+        fatal: false
+        login: true
+        flag: unknown
+  tasks:
+    - name: Run each case
+      ansible.builtin.include_tasks: case.yml
+      loop: "{{ ghcr_verdict_cases }}"
+      loop_control:
+        loop_var: ghcr_verdict_case
+        label: "{{ ghcr_verdict_case.name }}"
+
+    # Without a token the proof's block skips, so only its reset decides the
+    # fact: an earlier include's rejection must not survive into this one.
+    - name: Leave a rejection from an earlier include
+      ansible.builtin.set_fact:
+        docker_ghcr_login_ok: false
+
+    - name: Prove with no token
+      ansible.builtin.include_tasks: "{{ ghcr_verdict_prove_tasks }}"
+      vars:
+        ghcr_pull_token: ""
+
+    - name: Check the login is allowed without a token
+      ansible.builtin.assert:
+        that: docker_ghcr_login_ok | bool
+        fail_msg: "no token: login_ok {{ docker_ghcr_login_ok }} (want True)"
+        quiet: true
+
+    # A loop that ran nothing must not read as a pass.
+    - name: Require every case to have been checked
+      ansible.builtin.assert:
+        that: ghcr_verdict_checked | default(0) | int == ghcr_verdict_cases | length
+        fail_msg: checked {{ ghcr_verdict_checked | default(0) }} of {{ ghcr_verdict_cases | length }} cases
+        quiet: true

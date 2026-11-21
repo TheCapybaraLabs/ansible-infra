@@ -1,0 +1,66 @@
+---
+# Reads the three answers prove-ghcr.yml registered (docker_ghcr_auth,
+# docker_ghcr_scoped, docker_ghcr_pull) and docker_ghcr_probe_repo. One
+# verdict, read by the tasks below: rejected (the credential), unreadable (the
+# probe repository), unknown (ghcr.io did not answer one).
+- name: Read the verdict
+  ansible.builtin.set_fact:
+    docker_ghcr_verdict: >-
+      {{ 'rejected' if docker_ghcr_auth.status in [400, 401, 403]
+      else 'unknown' if docker_ghcr_auth.status != 200
+      else 'proven' if docker_ghcr_probe_repo | length == 0
+      else 'unreadable' if (docker_ghcr_scoped.status | default(0)) in [400, 401, 403, 404]
+      or (docker_ghcr_pull.status | default(0)) in [400, 401, 403, 404]
+      else 'proven' if (docker_ghcr_scoped.status | default(0)) == 200
+      and (docker_ghcr_pull.status | default(0)) == 200
+      else 'unknown' }}
+    docker_ghcr_statuses: >-
+      auth HTTP {{ docker_ghcr_auth.status }}, scoped token HTTP {{ docker_ghcr_scoped.status | default('-') }},
+      pull HTTP {{ docker_ghcr_pull.status | default('-') }}
+
+# A rejected credential is fatal only where the host names a package it pulls.
+# Without one the host has no private image to lose, and failing it would let
+# one revoked fleet-wide token stop every converge, including boxes that pull
+# nothing from ghcr.io. The login is skipped instead (docker_ghcr_login_ok), so
+# a rejected token never reaches docker_login or the host's config.json.
+- name: Decide whether the login may run
+  ansible.builtin.set_fact:
+    docker_ghcr_login_ok: "{{ docker_ghcr_verdict != 'rejected' }}"
+
+- name: Refuse a credential ghcr.io rejects
+  ansible.builtin.assert:
+    that: docker_ghcr_verdict != 'rejected' or docker_ghcr_probe_repo | length == 0
+    fail_msg: >-
+      ghcr.io rejected ghcr_login_username / ghcr_pull_token ({{ docker_ghcr_statuses }}), and this host pulls
+      {{ docker_ghcr_probe_repo }}. Rotate the token: a host already logged in keeps pulling with whatever it stored,
+      until that is revoked.
+    quiet: true
+
+- name: Refuse a probe repository the credential cannot read
+  ansible.builtin.assert:
+    that: docker_ghcr_verdict != 'unreadable'
+    fail_msg: >-
+      The credential authenticates, but cannot read {{ docker_ghcr_probe_repo }} ({{ docker_ghcr_statuses }}): the
+      package does not exist under that name, or the token's owner has no read access to it.
+    quiet: true
+
+# Not fatal, but not silent: an ignored failure shows in the recap as
+# ignored=1 instead of one line among hundreds.
+- name: Flag a rejected credential on a host that names no package
+  ansible.builtin.fail:
+    msg: >-
+      ghcr.io rejected ghcr_login_username / ghcr_pull_token ({{ docker_ghcr_statuses }}); skipping the GHCR login.
+      docker_ghcr_probe_repository is empty, so nothing says this host pulls a private package. If it does, set it,
+      and this becomes a refusal before anything pulls. Rotate the token either way.
+  when: docker_ghcr_verdict == 'rejected'
+  register: docker_ghcr_rejected_flag
+  ignore_errors: true # noqa: ignore-errors — deliberate: it is what puts the skipped login in the recap
+
+# ghcr.io down, rate-limited or unreachable is not a verdict on the credential.
+# The converge goes on, logging in as before.
+- name: Flag a credential ghcr.io could not be asked about
+  ansible.builtin.fail:
+    msg: Could not prove the GHCR credential ({{ docker_ghcr_statuses }}); converging without that check.
+  when: docker_ghcr_verdict == 'unknown'
+  register: docker_ghcr_unknown_flag
+  ignore_errors: true # noqa: ignore-errors — deliberate: it is what puts an unproven credential in the recap
