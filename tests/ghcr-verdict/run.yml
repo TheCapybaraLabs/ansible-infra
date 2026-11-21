@@ -13,6 +13,7 @@
   gather_facts: false
   vars:
     ghcr_verdict_tasks: "{{ playbook_dir }}/../../roles/docker/tasks/ghcr-verdict.yml"
+    ghcr_verdict_prove_tasks: "{{ playbook_dir }}/../../roles/docker/tasks/prove-ghcr.yml"
     ghcr_verdict_cases:
       - name: rejected token, host names no package
         probe: ""
@@ -81,6 +82,23 @@
       loop_control:
         loop_var: ghcr_verdict_case
         label: "{{ ghcr_verdict_case.name }}"
+
+    # Without a token the proof's block skips, so only its reset decides the
+    # fact: an earlier include's rejection must not survive into this one.
+    - name: Leave a rejection from an earlier include
+      ansible.builtin.set_fact:
+        docker_ghcr_login_ok: false
+
+    - name: Prove with no token
+      ansible.builtin.include_tasks: "{{ ghcr_verdict_prove_tasks }}"
+      vars:
+        ghcr_pull_token: ""
+
+    - name: Check the login is allowed without a token
+      ansible.builtin.assert:
+        that: docker_ghcr_login_ok | bool
+        fail_msg: "no token: login_ok {{ docker_ghcr_login_ok }} (want True)"
+        quiet: true
 
     # A loop that ran nothing must not read as a pass.
     - name: Require every case to have been checked

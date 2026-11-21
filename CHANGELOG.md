@@ -18,9 +18,11 @@ that, and the next correction is 1.0.1.
 
 ### Added
 
-- `docker_ghcr_login_ok`, set by `prove-ghcr.yml`: false only for that skipped rejection. A service role that runs its
-  own `docker_login` after `tasks_from: prove-ghcr` gates it on `docker_ghcr_login_ok | default(true)`, or sets the
-  probe repository to the package it pulls so the rejection refuses before anything pulls.
+- `docker_ghcr_login_ok`, set by `prove-ghcr.yml`: false whenever ghcr.io rejected the credential — the skipped
+  rejection above, and the refused one with a probe repository set, where the converge stops anyway. True without a
+  token and for every other verdict. A service role that runs its own `docker_login` after `tasks_from: prove-ghcr`
+  gates it on `docker_ghcr_login_ok | default(true)`, or sets the probe repository to the package it pulls so the
+  rejection refuses before anything pulls.
 
 ## 4.0.0
 
