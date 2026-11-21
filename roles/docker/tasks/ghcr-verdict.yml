@@ -53,6 +53,7 @@
       docker_ghcr_probe_repository is empty, so nothing says this host pulls a private package. If it does, set it,
       and this becomes a refusal before anything pulls. Rotate the token either way.
   when: docker_ghcr_verdict == 'rejected'
+  register: docker_ghcr_rejected_flag
   ignore_errors: true # noqa: ignore-errors — deliberate: it is what puts the skipped login in the recap
 
 # ghcr.io down, rate-limited or unreachable is not a verdict on the credential.
@@ -61,4 +62,5 @@
   ansible.builtin.fail:
     msg: Could not prove the GHCR credential ({{ docker_ghcr_statuses }}); converging without that check.
   when: docker_ghcr_verdict == 'unknown'
+  register: docker_ghcr_unknown_flag
   ignore_errors: true # noqa: ignore-errors — deliberate: it is what puts an unproven credential in the recap

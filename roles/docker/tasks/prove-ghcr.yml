@@ -6,6 +6,12 @@
 # `include_role: {name: capybaralabs.infra.docker, tasks_from: prove-ghcr}`
 # and gates that login on `docker_ghcr_login_ok | default(true)`; without a
 # token it skips, like the login.
+# Reset first: a fact outlives the include that set it, and a later include
+# whose block skips must not inherit an earlier rejection.
+- name: Allow the login until a verdict says otherwise
+  ansible.builtin.set_fact:
+    docker_ghcr_login_ok: true
+
 - name: Prove the GHCR pull credential
   when: ghcr_pull_token | default('', true) | length > 0
   vars:

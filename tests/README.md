@@ -82,7 +82,7 @@ render can see a decision.
 This is not the unit suite ADR-0003 rules out: the cases test our verdict, never a module. The probes themselves stay
 untested here; ghcr.io's answers are the consumer's dry-run.
 
-**Mutants.** The script then removes each guard in a copy of the file and expects a case's own check to fail (its
-message carries `(want …)`); a mutant that breaks the template instead does not count as caught. A guard you add gets a
-case and a mutant in the same commit, and a mutation that no longer applies to the file fails the run, so a rewrite
-cannot quietly retire one.
+**Mutants.** The script then removes each guard (`tests/ghcr-verdict/mutants.txt`) in a copy of the file and expects a
+case's own check to fail (its message carries `(want …)`); a mutant that breaks the template instead does not count as
+caught. A guard you add gets a case and a mutant in the same commit, and a mutation that no longer applies to the file
+fails the run, so a rewrite cannot quietly retire one.

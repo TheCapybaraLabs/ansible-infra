@@ -37,19 +37,15 @@ fi
 green '  ok  ghcr verdict cases'
 ((mutants)) || exit 0
 
-# Each mutant removes one guard, `from@@to`. A mutant the cases do not catch is
-# a guard no case pins, so the suite fails for it. Caught means a case's own
-# check failed ("want"), not that the mutant broke the template.
+# Each mutant (tests/ghcr-verdict/mutants.txt) removes one guard. A mutant the
+# cases do not catch is a guard no case pins, so the suite fails for it. Caught
+# means a case's own check failed ("want"), not that the mutant broke the
+# template.
 tmp=$(mktemp -d) || exit 1
 trap 'rm -rf "$tmp"' EXIT
-mutations=(
-	" or docker_ghcr_probe_repo | length == 0@@"
-	"that: docker_ghcr_verdict != 'rejected' or@@that: true or"
-	"docker_ghcr_login_ok: \"{{ docker_ghcr_verdict != 'rejected' }}\"@@docker_ghcr_login_ok: true"
-	"that: docker_ghcr_verdict != 'unreadable'@@that: true"
-)
 fail=0
-for m in "${mutations[@]}"; do
+while IFS= read -r m; do
+	[[ -z $m || $m == '#'* ]] && continue
 	from=${m%%@@*}
 	to=${m#*@@}
 	mutant="$tmp/ghcr-verdict.yml"
@@ -64,7 +60,9 @@ open(sys.argv[2], "w").write(s.replace(os.environ["FROM"], os.environ["TO"], 1))
 		fail=$((fail + 1))
 		continue
 	fi
-	out=$(ansible-playbook "$play" -e "ghcr_verdict_tasks=$mutant" 2>&1)
+	# </dev/null: the loop's stdin is the mutants file.
+	out=$(ansible-playbook "$play" -e "ghcr_verdict_tasks=$mutant" \
+		</dev/null 2>&1)
 	rc=$?
 	if ((rc != 0)) && [[ $out == *'(want '* ]]; then
 		green "  ok  caught: $from"
@@ -72,5 +70,5 @@ open(sys.argv[2], "w").write(s.replace(os.environ["FROM"], os.environ["TO"], 1))
 		red "  FAIL survived: $from"
 		fail=$((fail + 1))
 	fi
-done
+done <tests/ghcr-verdict/mutants.txt
 ((fail == 0))

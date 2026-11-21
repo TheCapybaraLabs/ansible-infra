@@ -9,6 +9,8 @@
     docker_ghcr_pull: "{{ {'status': ghcr_verdict_case.pull} if ghcr_verdict_case.pull is defined else {} }}"
     docker_ghcr_verdict: unset
     docker_ghcr_login_ok: unset
+    docker_ghcr_rejected_flag: {}
+    docker_ghcr_unknown_flag: {}
     ghcr_verdict_stopped: false
 
 - name: Judge {{ ghcr_verdict_case.name }}
@@ -26,10 +28,13 @@
       - docker_ghcr_verdict == ghcr_verdict_case.verdict
       - ghcr_verdict_stopped == ghcr_verdict_case.fatal
       - docker_ghcr_login_ok | bool == ghcr_verdict_case.login
+      # The flag is the recap's ignored=1: the only trace of a skipped login.
+      - (docker_ghcr_rejected_flag.failed | default(false)) == (ghcr_verdict_case.flag == 'rejected')
+      - (docker_ghcr_unknown_flag.failed | default(false)) == (ghcr_verdict_case.flag == 'unknown')
     fail_msg: >-
       {{ ghcr_verdict_case.name }}: verdict {{ docker_ghcr_verdict }} (want {{ ghcr_verdict_case.verdict }}), stopped
       {{ ghcr_verdict_stopped }} (want {{ ghcr_verdict_case.fatal }}), login {{ docker_ghcr_login_ok }} (want
-      {{ ghcr_verdict_case.login }})
+      {{ ghcr_verdict_case.login }}), flag (want {{ ghcr_verdict_case.flag }})
     quiet: true
 
 - name: Count {{ ghcr_verdict_case.name }}

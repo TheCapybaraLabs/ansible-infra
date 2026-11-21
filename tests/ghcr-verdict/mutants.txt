@@ -1,0 +1,8 @@
+# One mutant per line, `from@@to`, applied once to a copy of
+# roles/docker/tasks/ghcr-verdict.yml by scripts/ghcr-verdict.sh --mutants.
+ or docker_ghcr_probe_repo | length == 0@@
+that: docker_ghcr_verdict != 'rejected' or@@that: true or
+docker_ghcr_login_ok: "{{ docker_ghcr_verdict != 'rejected' }}"@@docker_ghcr_login_ok: true
+that: docker_ghcr_verdict != 'unreadable'@@that: true
+when: docker_ghcr_verdict == 'rejected'@@when: false
+when: docker_ghcr_verdict == 'unknown'@@when: false
