@@ -41,11 +41,18 @@ green '  ok  ghcr verdict cases'
 # cases do not catch is a guard no case pins, so the suite fails for it. Caught
 # means a case's own check failed ("want"), not that the mutant broke the
 # template.
+list='tests/ghcr-verdict/mutants.txt'
+[[ -r $list ]] || {
+	red "  FAIL cannot read $list"
+	exit 1
+}
 tmp=$(mktemp -d) || exit 1
 trap 'rm -rf "$tmp"' EXIT
 fail=0
+ran=0
 while IFS= read -r m; do
 	[[ -z $m || $m == '#'* ]] && continue
+	ran=$((ran + 1))
 	from=${m%%@@*}
 	to=${m#*@@}
 	mutant="$tmp/ghcr-verdict.yml"
@@ -70,5 +77,10 @@ open(sys.argv[2], "w").write(s.replace(os.environ["FROM"], os.environ["TO"], 1))
 		red "  FAIL survived: $from"
 		fail=$((fail + 1))
 	fi
-done <tests/ghcr-verdict/mutants.txt
+done <"$list"
+# An emptied list must not read as every guard pinned.
+if ((ran == 0)); then
+	red "  FAIL no mutant in $list"
+	exit 1
+fi
 ((fail == 0))
