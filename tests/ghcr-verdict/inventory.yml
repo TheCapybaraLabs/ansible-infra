@@ -1,0 +1,23 @@
+---
+all:
+  children:
+    alpha:
+      hosts:
+        grouped:
+      vars:
+        docker_ghcr_probe_repositories_group_alpha: [example-owner/group-alpha]
+    zulu:
+      hosts:
+        grouped:
+      vars:
+        docker_ghcr_probe_repositories_group_zulu: [example-owner/group-zulu]
+    shared_alpha:
+      hosts:
+        overwritten:
+      vars:
+        docker_ghcr_probe_repositories: [example-owner/shared-alpha]
+    shared_zulu:
+      hosts:
+        overwritten:
+      vars:
+        docker_ghcr_probe_repositories: [example-owner/shared-zulu]

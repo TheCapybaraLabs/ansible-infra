@@ -99,13 +99,34 @@ work or fails loudly, and which one is stated below.
 
 **Optional — absent, the role skips that work rather than failing**
 
-| Var                                                          | Effect when absent                                                                                                                                                                                                                                                                                                                                                                                                      |
-| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ghcr_pull_token`                                            | `docker` skips the registry login.                                                                                                                                                                                                                                                                                                                                                                                      |
-| `ghcr_login_username`                                        | Required whenever the token is set — asserted. With the token set, `docker` asks ghcr.io whether it accepts the pair before touching the host (`tasks/prove-ghcr.yml`): 400/401/403 fail the converge when `docker_ghcr_probe_repository` is set, and otherwise skip the login (`ignored=1`); with it set, an unreadable package (400/401/403/404) fails too; ghcr.io unreachable or rate-limited shows as `ignored=1`. |
-| `rclone_r2_access_key_id`, `_secret_access_key`, `_endpoint` | `rclone` installs the binary, renders no remote named `r2`. All three or none — asserted.                                                                                                                                                                                                                                                                                                                               |
-| `rclone_crypt_password` + `rclone_crypt_password2`           | No `r2crypt` wrapper is rendered and backups write to the plain remote. Both or neither — asserted. See docs/rclone/encryption.md.                                                                                                                                                                                                                                                                                      |
-| `os_hostname_domain`                                         | `os` does not name the box at all — the provider's name stands. Set it, and the box becomes `<inventory key>.<domain>`. Override the derivation per host with `os_hostname`; naming happens if either is set.                                                                                                                                                                                                           |
+| Var                                                          | Effect when absent                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ghcr_pull_token`                                            | `docker` skips the registry login.                                                                                                                                                                                                                                                                                                        |
+| `ghcr_login_username`                                        | Required whenever the token is set — asserted. Before touching the host, `docker` checks the credential and every configured probe repository. Rejection fails if any package is named; with none, it skips login (`ignored=1`). An unreadable package fails with its name; GHCR unavailable or rate-limited produces an ignored warning. |
+| `rclone_r2_access_key_id`, `_secret_access_key`, `_endpoint` | `rclone` installs the binary, renders no remote named `r2`. All three or none — asserted.                                                                                                                                                                                                                                                 |
+| `rclone_crypt_password` + `rclone_crypt_password2`           | No `r2crypt` wrapper is rendered and backups write to the plain remote. Both or neither — asserted. See docs/rclone/encryption.md.                                                                                                                                                                                                        |
+| `os_hostname_domain`                                         | `os` does not name the box at all — the provider's name stands. Set it, and the box becomes `<inventory key>.<domain>`. Override the derivation per host with `os_hostname`; naming happens if either is set.                                                                                                                             |
+
+**GHCR package coverage**
+
+Set `docker_ghcr_probe_repositories` to a list of `owner/package` names (no registry prefix or tag). Every package must
+be readable. The deprecated `docker_ghcr_probe_repository` is still added, and duplicate names are checked once.
+
+For a host in several service groups, give each group its own list name, such as `docker_ghcr_probe_repositories_api`
+and `docker_ghcr_probe_repositories_worker`. The role adds every variable matching
+`docker_ghcr_probe_repositories_<suffix>` to the explicit list and the legacy value. Use a unique suffix per source;
+this is a naming convention, not automatic merging of group variables. Two groups defining the same
+`docker_ghcr_probe_repositories` still overwrite each other according to Ansible precedence. The role sees only the
+resolved value and cannot reliably warn about its original sources. No hash merge setting or group priority is needed
+for distinct names.
+
+Repository names must be lowercase and contain no `ghcr.io/` prefix, tag, digest, spaces, or query string. The role
+validates them before authentication and URL-encodes requests. Using the singular variable prints a deprecation notice;
+it remains supported and additive.
+
+With no packages in any input, the 4.1.0 behavior remains: accepted credentials permit login, rejected credentials skip
+it with an ignored warning, and an unavailable registry does not stop the converge. Name every private package whose
+access must be proved; authentication alone does not prove package access.
 
 **Required once a host joins the group that needs it**
 

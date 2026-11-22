@@ -7,6 +7,26 @@ gets.
 A released tag is never repointed. 1.0.0 moved while the repo was private and nothing pinned it; going public ended
 that, and the next correction is 1.0.1.
 
+## 4.2.0
+
+### Added
+
+- `docker_ghcr_probe_repositories`: prove pull access to every named GHCR package before logging in. A denied package
+  fails with its repository name, even when other packages are readable. Duplicate names are checked once.
+- Independent `docker_ghcr_probe_repositories_<suffix>` lists are added to the explicit list, so inventory groups can
+  contribute packages by a naming convention: each source needs a unique suffix. This is not automatic group merging;
+  two groups defining the same `docker_ghcr_probe_repositories` still overwrite each other under Ansible precedence.
+- Probe names are validated as lowercase owner/package paths without registry prefixes, tags, digests, whitespace, or
+  query strings, and are encoded in request URLs.
+
+### Deprecated
+
+- `docker_ghcr_probe_repository`: the singular variable remains supported and is added to the list, with a runtime
+  deprecation notice. Migrate to the plural variable or distinct suffixed lists for group contributions.
+
+The 4.1.0 authentication behavior is unchanged: with no package in any input, a rejected credential skips login with an
+ignored warning; an accepted credential still permits login. Unavailable or rate-limited GHCR remains nonfatal.
+
 ## 4.1.0
 
 ### Changed

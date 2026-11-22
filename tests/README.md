@@ -79,8 +79,20 @@ recorded ghcr.io answers, one case per decision — the verdict, whether the con
 That file decides whether one rejected token stops a whole fleet's converge, and neither `ansible-lint` nor a golden
 render can see a decision.
 
-This is not the unit suite ADR-0003 rules out: the cases test our verdict, never a module. The probes themselves stay
-untested here; ghcr.io's answers are the consumer's dry-run.
+This is not the unit suite ADR-0003 rules out: the cases test our verdict, never a module. Live ghcr.io answers remain
+the consumer's dry-run.
+
+`scripts/ghcr-probe.sh` also runs the real probe control flow with only the URI transport replaced by a recorded action
+plugin in a temporary copy. It cannot contact GHCR. Cases cover multiple packages, a denied second package, legacy
+input, deduplication, repeated includes, and both accepted and rejected credentials with no packages. A second play uses
+two actual sibling inventory groups with distinct contribution variables to prove their union survives Ansible's
+variable precedence; another proves that same-named lists are replaced, not merged. Invalid image references are
+rejected before authentication, and legacy input must emit its deprecation notice. Run it with `--check` to exercise the
+same control flow in dry-run mode.
+
+The staged probe accepts only recorded transport and a small allowlist of local actions, with includes restricted to the
+guarded files. `scripts/ghcr-probe-safety.sh` injects six unmocked actions (including short and qualified network
+modules and shell commands) and requires rejection before Ansible starts, even when the injected task is disabled.
 
 **Mutants.** The script then removes each guard (`tests/ghcr-verdict/mutants.txt`) in a copy of the file and expects a
 case's own check to fail (its message carries `(want …)`); a mutant that breaks the template instead does not count as

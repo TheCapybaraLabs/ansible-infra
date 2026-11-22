@@ -14,9 +14,10 @@
 
 - name: Prove the GHCR pull credential
   when: ghcr_pull_token | default('', true) | length > 0
-  vars:
-    docker_ghcr_probe_repo: "{{ docker_ghcr_probe_repository | default('', true) }}"
   block:
+    - name: Collect the repositories to prove
+      ansible.builtin.include_tasks: ghcr-repositories.yml
+
     - name: Require ghcr_login_username with the token
       ansible.builtin.assert:
         that: ghcr_login_username | default('', true) | length > 0
@@ -38,33 +39,8 @@
       changed_when: false
       check_mode: false
 
-    - name: Ask ghcr.io for a pull token on the probe repository
-      ansible.builtin.uri:
-        url: "https://ghcr.io/token?service=ghcr.io&scope=repository:{{ docker_ghcr_probe_repo }}:pull"
-        url_username: "{{ ghcr_login_username }}"
-        url_password: "{{ ghcr_pull_token }}"
-        force_basic_auth: true
-        timeout: 15
-      register: docker_ghcr_scoped
-      no_log: true
-      failed_when: false
-      changed_when: false
-      check_mode: false
-      when: docker_ghcr_probe_repo | length > 0 and docker_ghcr_auth.status == 200
-
-    - name: Ask the probe repository for a tag with that token
-      ansible.builtin.uri:
-        url: "https://ghcr.io/v2/{{ docker_ghcr_probe_repo }}/tags/list?n=1"
-        headers:
-          Authorization: "Bearer {{ docker_ghcr_scoped.json.token }}"
-        timeout: 15
-      register: docker_ghcr_pull
-      no_log: true
-      failed_when: false
-      changed_when: false
-      check_mode: false
-      when: docker_ghcr_scoped.status | default(0) == 200 and docker_ghcr_scoped.json.token is defined
-
-    # Its own file so tests/ghcr-verdict/ can feed it recorded answers.
-    - name: Judge the answers
-      ansible.builtin.include_tasks: ghcr-verdict.yml
+    - name: Prove every named repository
+      ansible.builtin.include_tasks: prove-ghcr-repository.yml
+      loop: "{{ docker_ghcr_probe_repos if docker_ghcr_probe_repos | length > 0 else [''] }}"
+      loop_control:
+        loop_var: docker_ghcr_probe_repo
