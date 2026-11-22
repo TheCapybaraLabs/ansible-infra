@@ -86,7 +86,13 @@ the consumer's dry-run.
 plugin in a temporary copy. It cannot contact GHCR. Cases cover multiple packages, a denied second package, legacy
 input, deduplication, repeated includes, and both accepted and rejected credentials with no packages. A second play uses
 two actual sibling inventory groups with distinct contribution variables to prove their union survives Ansible's
-variable precedence. Run it with `--check` to exercise the same control flow in dry-run mode.
+variable precedence; another proves that same-named lists are replaced, not merged. Invalid image references are
+rejected before authentication, and legacy input must emit its deprecation notice. Run it with `--check` to exercise the
+same control flow in dry-run mode.
+
+The staged probe accepts only recorded transport and a small allowlist of local actions, with includes restricted to the
+guarded files. `scripts/ghcr-probe-safety.sh` injects six unmocked actions (including short and qualified network
+modules and shell commands) and requires rejection before Ansible starts, even when the injected task is disabled.
 
 **Mutants.** The script then removes each guard (`tests/ghcr-verdict/mutants.txt`) in a copy of the file and expects a
 case's own check to fail (its message carries `(want …)`); a mutant that breaks the template instead does not count as

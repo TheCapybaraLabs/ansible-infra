@@ -8,6 +8,9 @@
       - name: two repositories
         repositories: [example-owner/api, example-owner/worker]
         want: [example-owner/api, example-owner/worker]
+      - name: nested repository path
+        repositories: [example-owner/team/api__worker-2]
+        want: [example-owner/team/api__worker-2]
       - name: second repository denied
         repositories: [example-owner/api, example-owner/denied]
         want: [example-owner/api, example-owner/denied]
@@ -48,19 +51,22 @@
         want: []
         fatal: true
         auth_requests: 0
+        login: true
         message: docker_ghcr_probe_repositories must be a list
       - name: contribution must not be a scalar
         alpha: example-owner/api
         want: []
         fatal: true
         auth_requests: 0
+        login: true
         message: docker_ghcr_probe_repositories_alpha must be a list
       - name: repository names must not be empty
         repositories: [""]
         want: []
         fatal: true
         auth_requests: 0
-        message: GHCR probe repositories must be nonempty
+        login: true
+        message: GHCR probe repositories must be lowercase owner/package names
   tasks:
     - name: Run probe cases
       ansible.builtin.include_tasks: probe-case.yml
@@ -68,6 +74,27 @@
       loop_control:
         loop_var: ghcr_test_case
         label: "{{ ghcr_test_case.name }}"
+
+    - name: Reject image references instead of repository names
+      ansible.builtin.include_tasks: probe-case.yml
+      vars:
+        ghcr_test_case:
+          name: "invalid repository {{ ghcr_test_invalid_repository }}"
+          repositories: ["{{ ghcr_test_invalid_repository }}"]
+          want: []
+          fatal: true
+          auth_requests: 0
+          login: true
+          message: GHCR probe repositories must be lowercase owner/package names
+      loop:
+        - example-owner/api:latest
+        - ghcr.io/example-owner/api
+        - example-owner/api worker
+        - example-owner/API
+        - example-owner/api?scope=other
+        - "example-owner/api\n"
+      loop_control:
+        loop_var: ghcr_test_invalid_repository
 
 - name: Merge independent inventory group contributions
   hosts: grouped
@@ -80,3 +107,20 @@
         ghcr_test_case:
           name: sibling group union
           want: [example-owner/group-alpha, example-owner/group-zulu]
+
+- name: Document replacement of the same variable in sibling groups
+  hosts: overwritten
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Confirm Ansible kept only the later sibling value
+      ansible.builtin.assert:
+        that: docker_ghcr_probe_repositories == ['example-owner/shared-zulu']
+
+    - name: Prove only the surviving explicit list
+      ansible.builtin.include_tasks: probe-case.yml
+      vars:
+        ghcr_test_case:
+          name: same variable follows Ansible precedence
+          repositories: "{{ hostvars[inventory_hostname].docker_ghcr_probe_repositories }}"
+          want: [example-owner/shared-zulu]

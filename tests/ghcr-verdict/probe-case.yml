@@ -33,6 +33,14 @@
       - ghcr_test_stopped == ghcr_test_case.fatal | default(false)
       - docker_ghcr_login_ok | bool == ghcr_test_case.login | default(true)
       - >-
+        ghcr_test_case.auth_requests | default(1) == 0 or
+        (docker_ghcr_legacy_notice is defined and
+        (docker_ghcr_legacy_notice.skipped | default(false)) ==
+        (ghcr_test_case.legacy | default('') | length == 0))
+      - >-
+        ghcr_test_case.legacy | default('') | length == 0 or
+        docker_ghcr_legacy_notice.msg is search('DEPRECATED')
+      - >-
         ansible_facts.ghcr_test_requests | default([]) |
         select('equalto', 'https://ghcr.io/token?service=ghcr.io') | list | length ==
         ghcr_test_case.auth_requests | default(1)
@@ -50,6 +58,8 @@
 
 - name: Check every repository was requested
   ansible.builtin.assert:
-    that: "'https://ghcr.io/token?service=ghcr.io&scope=repository:' ~ item ~ ':pull' in ansible_facts.ghcr_test_requests"
+    that: >-
+      'https://ghcr.io/token?service=ghcr.io&scope=' ~
+      (('repository:' ~ item ~ ':pull') | urlencode) in ansible_facts.ghcr_test_requests
   loop: "{{ ghcr_test_case.want }}"
   when: ghcr_test_case.auth | default(200) == 200

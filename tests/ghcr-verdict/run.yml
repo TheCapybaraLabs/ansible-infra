@@ -106,3 +106,26 @@
         that: ghcr_verdict_checked | default(0) | int == ghcr_verdict_cases | length
         fail_msg: checked {{ ghcr_verdict_checked | default(0) }} of {{ ghcr_verdict_cases | length }} cases
         quiet: true
+
+    # Even a caller that ignores the refusal must not get a no-package warning
+    # for a named package. Exercise the otherwise unreachable warning task.
+    - name: Load a named package with rejected credentials
+      ansible.builtin.set_fact:
+        docker_ghcr_probe_repo: example-owner/example-app
+        docker_ghcr_auth: { status: 401 }
+        docker_ghcr_scoped: {}
+        docker_ghcr_pull: {}
+        docker_ghcr_rejected_flag: {}
+
+    - name: Continue past the refusal to check the warning guard
+      ansible.builtin.include_tasks:
+        file: "{{ ghcr_verdict_tasks }}"
+        apply:
+          ignore_errors: true # noqa: ignore-errors — exercises a caller that ignores the refusal
+
+    - name: Require the no-package warning to stay skipped
+      ansible.builtin.assert:
+        that:
+          - docker_ghcr_rejected_flag.skipped | default(false)
+          - not docker_ghcr_login_ok | bool
+        fail_msg: "named package: no-package warning (want skipped)"

@@ -7,6 +7,14 @@
     fail_msg: docker_ghcr_probe_repositories must be a list of owner/package names.
     quiet: true
 
+- name: Warn about the deprecated singular repository
+  ansible.builtin.debug:
+    msg: >-
+      DEPRECATED: docker_ghcr_probe_repository is still supported but should be migrated to
+      docker_ghcr_probe_repositories or a uniquely suffixed contribution list.
+  when: docker_ghcr_probe_repository | default('', true) | length > 0
+  register: docker_ghcr_legacy_notice
+
 - name: Start with the explicit list and the deprecated singular repository
   ansible.builtin.set_fact:
     docker_ghcr_probe_repos: >-
@@ -29,12 +37,20 @@
   loop_control:
     loop_var: docker_ghcr_contribution
 
-- name: Require nonempty repository names
+- name: Require repository names without registry prefixes or tags
+  vars:
+    docker_ghcr_repository_component: "[a-z0-9]+(?:(?:[._]|__|-+)[a-z0-9]+)*"
   ansible.builtin.assert:
     that:
       - docker_ghcr_repository is string
-      - docker_ghcr_repository | trim | length > 0
-    fail_msg: GHCR probe repositories must be nonempty owner/package strings.
+      - docker_ghcr_repository == docker_ghcr_repository | trim
+      - not docker_ghcr_repository.startswith('ghcr.io/')
+      - >-
+        docker_ghcr_repository is match('^' ~ docker_ghcr_repository_component ~
+        '(?:/' ~ docker_ghcr_repository_component ~ ')+$')
+    fail_msg: >-
+      GHCR probe repositories must be lowercase owner/package names, without a ghcr.io/ prefix,
+      tag, digest, whitespace, or query string.
     quiet: true
   loop: "{{ docker_ghcr_probe_repos }}"
   loop_control:

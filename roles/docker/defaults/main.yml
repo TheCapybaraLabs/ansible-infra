@@ -17,7 +17,8 @@ docker_cleanup_until: 168h
 docker_cleanup_oncalendar: "Sun *-*-* 05:00:00"
 docker_cleanup_randomized_delay: 30m
 
-# Private packages to prove readable, as `<owner>/<package>`, without tags.
+# Private packages to prove readable, as lowercase `<owner>/<package>`, without
+# registry prefixes, tags, digests, or whitespace.
 # Each named package is checked before login. For additive group vars, give
 # each group a DISTINCT docker_ghcr_probe_repositories_<suffix> list; the role
 # unions all such lists with this one and the legacy singular value. Repeating

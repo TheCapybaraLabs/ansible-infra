@@ -1,7 +1,7 @@
 ---
 - name: Ask ghcr.io for a pull token on the probe repository
   ansible.builtin.uri:
-    url: "https://ghcr.io/token?service=ghcr.io&scope=repository:{{ docker_ghcr_probe_repo }}:pull"
+    url: "https://ghcr.io/token?service=ghcr.io&scope={{ ('repository:' ~ docker_ghcr_probe_repo ~ ':pull') | urlencode }}"
     url_username: "{{ ghcr_login_username }}"
     url_password: "{{ ghcr_pull_token }}"
     force_basic_auth: true
@@ -15,7 +15,7 @@
 
 - name: Ask the probe repository for a tag with that token
   ansible.builtin.uri:
-    url: "https://ghcr.io/v2/{{ docker_ghcr_probe_repo }}/tags/list?n=1"
+    url: "https://ghcr.io/v2/{{ docker_ghcr_probe_repo | urlencode }}/tags/list?n=1"
     headers:
       Authorization: "Bearer {{ docker_ghcr_scoped.json.token }}"
     timeout: 15

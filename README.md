@@ -115,8 +115,14 @@ be readable. The deprecated `docker_ghcr_probe_repository` is still added, and d
 For a host in several service groups, give each group its own list name, such as `docker_ghcr_probe_repositories_api`
 and `docker_ghcr_probe_repositories_worker`. The role adds every variable matching
 `docker_ghcr_probe_repositories_<suffix>` to the explicit list and the legacy value. Use a unique suffix per source;
-setting the same variable in sibling groups still lets Ansible replace one value before the role sees it. No hash merge
-setting or group priority is needed for distinct names.
+this is a naming convention, not automatic merging of group variables. Two groups defining the same
+`docker_ghcr_probe_repositories` still overwrite each other according to Ansible precedence. The role sees only the
+resolved value and cannot reliably warn about its original sources. No hash merge setting or group priority is needed
+for distinct names.
+
+Repository names must be lowercase and contain no `ghcr.io/` prefix, tag, digest, spaces, or query string. The role
+validates them before authentication and URL-encodes requests. Using the singular variable prints a deprecation notice;
+it remains supported and additive.
 
 With no packages in any input, the 4.1.0 behavior remains: accepted credentials permit login, rejected credentials skip
 it with an ignored warning, and an unavailable registry does not stop the converge. Name every private package whose
