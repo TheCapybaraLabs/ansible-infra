@@ -73,6 +73,7 @@ sanity: ## ansible-test sanity against a staged copy of the working tree
 test: ## Golden renders + the GHCR verdict cases and their mutants
 	./scripts/golden.sh
 	./scripts/ghcr-verdict.sh --mutants
+	./scripts/ghcr-probe.sh
 
 # Separate target rather than a flag on `test`, so accepting a new expectation is
 # always a deliberate command with a diff to read afterwards.

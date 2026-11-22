@@ -50,7 +50,8 @@
   ansible.builtin.fail:
     msg: >-
       ghcr.io rejected ghcr_login_username / ghcr_pull_token ({{ docker_ghcr_statuses }}); skipping the GHCR login.
-      docker_ghcr_probe_repository is empty, so nothing says this host pulls a private package. If it does, set it,
+      No GHCR probe repository is configured, so nothing says this host pulls a private package. If it does, set
+      docker_ghcr_probe_repositories,
       and this becomes a refusal before anything pulls. Rotate the token either way.
   when: docker_ghcr_verdict == 'rejected'
   register: docker_ghcr_rejected_flag

@@ -1,0 +1,55 @@
+---
+- name: Reset recorded transport
+  ansible.builtin.meta: clear_facts
+
+- name: Reset expected refusal
+  ansible.builtin.set_fact:
+    ghcr_test_stopped: false
+    ghcr_test_message: ""
+
+- name: Run the real probe control flow
+  vars:
+    ghcr_pull_token: test-only-not-a-credential
+    ghcr_login_username: example-owner
+    ghcr_test_auth: "{{ ghcr_test_case.auth | default(200) }}"
+    docker_ghcr_probe_repositories: "{{ ghcr_test_case.repositories | default([]) }}"
+    docker_ghcr_probe_repository: "{{ ghcr_test_case.legacy | default('') }}"
+    docker_ghcr_probe_repositories_alpha: "{{ ghcr_test_case.alpha | default([]) }}"
+    docker_ghcr_probe_repositories_zulu: "{{ ghcr_test_case.zulu | default([]) }}"
+  block:
+    - name: Include staged probe
+      ansible.builtin.include_tasks: "{{ ghcr_probe_tasks }}"
+  rescue:
+    - name: Record refusal
+      ansible.builtin.set_fact:
+        ghcr_test_stopped: true
+        ghcr_test_message: >-
+          {{ ansible_failed_result.msg }}
+          {{ ansible_failed_result.results | default([]) | map(attribute='msg') | join(' ') }}
+
+- name: Check probe outcome
+  ansible.builtin.assert:
+    that:
+      - ghcr_test_stopped == ghcr_test_case.fatal | default(false)
+      - docker_ghcr_login_ok | bool == ghcr_test_case.login | default(true)
+      - >-
+        ansible_facts.ghcr_test_requests | default([]) |
+        select('equalto', 'https://ghcr.io/token?service=ghcr.io') | list | length ==
+        ghcr_test_case.auth_requests | default(1)
+      - >-
+        ghcr_test_case.auth | default(200) != 200 or
+        ansible_facts.ghcr_test_requests | default([]) | select('search', '/tags/list') | list | length ==
+        ghcr_test_case.tags | default(ghcr_test_case.want | length)
+      - >-
+        not ghcr_test_case.fatal | default(false) or
+        (ghcr_test_case.auth | default(200) == 401 and 'rejected' in ghcr_test_message) or
+        (ghcr_test_case.message | default('cannot read example-owner/denied') in ghcr_test_message)
+    fail_msg: >-
+      {{ ghcr_test_case.name }}: {{ ansible_facts.ghcr_test_requests | default([]) }}
+      (want {{ ghcr_test_case.want }}), refusal {{ ghcr_test_message }}
+
+- name: Check every repository was requested
+  ansible.builtin.assert:
+    that: "'https://ghcr.io/token?service=ghcr.io&scope=repository:' ~ item ~ ':pull' in ansible_facts.ghcr_test_requests"
+  loop: "{{ ghcr_test_case.want }}"
+  when: ghcr_test_case.auth | default(200) == 200

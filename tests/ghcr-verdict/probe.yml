@@ -1,0 +1,82 @@
+---
+- name: Exercise the GHCR probe with recorded transport
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    ghcr_probe_cases:
+      - name: two repositories
+        repositories: [example-owner/api, example-owner/worker]
+        want: [example-owner/api, example-owner/worker]
+      - name: second repository denied
+        repositories: [example-owner/api, example-owner/denied]
+        want: [example-owner/api, example-owner/denied]
+        fatal: true
+        tags: 1
+      - name: empty list and rejected credential
+        repositories: []
+        want: []
+        auth: 401
+        login: false
+      - name: second repository denies tag listing
+        repositories: [example-owner/api, example-owner/tags-denied]
+        want: [example-owner/api, example-owner/tags-denied]
+        fatal: true
+        message: cannot read example-owner/tags-denied
+      - name: empty list and accepted credential
+        repositories: []
+        want: []
+      - name: legacy singular
+        legacy: example-owner/legacy
+        want: [example-owner/legacy]
+      - name: lists and legacy form a deduplicated union
+        repositories: [example-owner/api, example-owner/api]
+        legacy: example-owner/legacy
+        want: [example-owner/api, example-owner/legacy]
+      - name: independent group contributions
+        alpha: [example-owner/api]
+        zulu: [example-owner/worker]
+        want: [example-owner/api, example-owner/worker]
+      - name: rejected credential with packages
+        repositories: [example-owner/api, example-owner/worker]
+        want: [example-owner/api, example-owner/worker]
+        auth: 401
+        fatal: true
+        login: false
+      - name: list must not be a scalar
+        repositories: example-owner/api
+        want: []
+        fatal: true
+        auth_requests: 0
+        message: docker_ghcr_probe_repositories must be a list
+      - name: contribution must not be a scalar
+        alpha: example-owner/api
+        want: []
+        fatal: true
+        auth_requests: 0
+        message: docker_ghcr_probe_repositories_alpha must be a list
+      - name: repository names must not be empty
+        repositories: [""]
+        want: []
+        fatal: true
+        auth_requests: 0
+        message: GHCR probe repositories must be nonempty
+  tasks:
+    - name: Run probe cases
+      ansible.builtin.include_tasks: probe-case.yml
+      loop: "{{ ghcr_probe_cases }}"
+      loop_control:
+        loop_var: ghcr_test_case
+        label: "{{ ghcr_test_case.name }}"
+
+- name: Merge independent inventory group contributions
+  hosts: grouped
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Exercise actual sibling group variables
+      ansible.builtin.include_tasks: probe-case.yml
+      vars:
+        ghcr_test_case:
+          name: sibling group union
+          want: [example-owner/group-alpha, example-owner/group-zulu]

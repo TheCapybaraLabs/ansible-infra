@@ -1,0 +1,45 @@
+---
+# Ansible replaces same-named group vars before a role sees them. Distinct
+# suffixed variables preserve each group's contribution without hash merging.
+- name: Require a repository list
+  ansible.builtin.assert:
+    that: docker_ghcr_probe_repositories | default([]) | type_debug == 'list'
+    fail_msg: docker_ghcr_probe_repositories must be a list of owner/package names.
+    quiet: true
+
+- name: Start with the explicit list and the deprecated singular repository
+  ansible.builtin.set_fact:
+    docker_ghcr_probe_repos: >-
+      {{ docker_ghcr_probe_repositories | default([]) +
+      ([docker_ghcr_probe_repository] if docker_ghcr_probe_repository | default('', true) | length > 0 else []) }}
+
+- name: Require list contributions
+  ansible.builtin.assert:
+    that: lookup('ansible.builtin.vars', docker_ghcr_contribution) | type_debug == 'list'
+    fail_msg: "{{ docker_ghcr_contribution }} must be a list of owner/package names."
+    quiet: true
+  loop: "{{ query('ansible.builtin.varnames', '^docker_ghcr_probe_repositories_.+$') | sort }}"
+  loop_control:
+    loop_var: docker_ghcr_contribution
+
+- name: Add every independent contribution
+  ansible.builtin.set_fact:
+    docker_ghcr_probe_repos: "{{ docker_ghcr_probe_repos + lookup('ansible.builtin.vars', docker_ghcr_contribution) }}"
+  loop: "{{ query('ansible.builtin.varnames', '^docker_ghcr_probe_repositories_.+$') | sort }}"
+  loop_control:
+    loop_var: docker_ghcr_contribution
+
+- name: Require nonempty repository names
+  ansible.builtin.assert:
+    that:
+      - docker_ghcr_repository is string
+      - docker_ghcr_repository | trim | length > 0
+    fail_msg: GHCR probe repositories must be nonempty owner/package strings.
+    quiet: true
+  loop: "{{ docker_ghcr_probe_repos }}"
+  loop_control:
+    loop_var: docker_ghcr_repository
+
+- name: Prove each repository only once
+  ansible.builtin.set_fact:
+    docker_ghcr_probe_repos: "{{ docker_ghcr_probe_repos | unique(case_sensitive=true) }}"
